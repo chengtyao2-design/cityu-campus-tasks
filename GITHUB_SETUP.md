@@ -26,8 +26,8 @@ git add .
 # 创建初始提交
 git commit -m "Initial commit: CityU Campus Tasks project setup"
 
-# 添加远程仓库（替换 YOUR_USERNAME 为你的 GitHub 用户名）
-git remote add origin https://github.com/YOUR_USERNAME/cityu-campus-tasks.git
+# 添加远程仓库
+git remote add origin https://github.com/chengtyao2-design/cityu-campus-tasks.git
 
 # 推送到 GitHub
 git push -u origin main
@@ -60,16 +60,16 @@ git push
 
 ```bash
 # 配置 Git
-git config --global user.name "Your Name"
-git config --global user.email "your.email@example.com"
+git config --global user.name "chengtyao2-design"
+git config --global user.email "chengtyao2@gapps.cityu.edu.hk"
 
 # 初始化仓库
 git init
 git add .
 git commit -m "Initial commit: CityU Campus Tasks project setup"
 
-# 连接到 GitHub（替换 YOUR_USERNAME）
-git remote add origin https://github.com/YOUR_USERNAME/cityu-campus-tasks.git
+# 连接到 GitHub
+git remote add origin https://github.com/chengtyao2-design/cityu-campus-tasks.git
 git branch -M main
 git push -u origin main
 ```
