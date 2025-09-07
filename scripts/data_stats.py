@@ -1,246 +1,265 @@
 #!/usr/bin/env python3
 """
 数据统计分析脚本
-分析 tasks.csv 和 task_kb.jsonl 的内容统计
+分析 tasks.csv 和 task_kb.jsonl 的内容和质量
 """
 
 import csv
 import json
+from collections import Counter
+from typing import Dict, List, Any, Set
 import os
-from collections import Counter, defaultdict
-from typing import Dict, List, Any
 
 def analyze_tasks_csv(file_path: str) -> Dict[str, Any]:
-    """分析任务 CSV 文件"""
+    """分析 tasks.csv 文件"""
+    if not os.path.exists(file_path):
+        return {"error": f"文件不存在: {file_path}"}
+    
     stats = {
-        'total_tasks': 0,
-        'categories': Counter(),
-        'difficulties': Counter(),
-        'statuses': Counter(),
-        'courses': Counter(),
-        'avg_duration': 0,
-        'duration_range': {'min': float('inf'), 'max': 0},
-        'locations': set(),
-        'npcs': set()
+        "total_tasks": 0,
+        "categories": Counter(),
+        "difficulties": Counter(),
+        "locations": set(),
+        "npcs": set(),
+        "courses": set(),
+        "durations": [],
+        "points": [],
+        "field_stats": {}
     }
     
-    total_duration = 0
-    
-    with open(file_path, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            
+            for row in reader:
+                stats["total_tasks"] += 1
+                
+                # 统计分类
+                if row.get("category"):
+                    stats["categories"][row["category"]] += 1
+                
+                # 统计难度
+                if row.get("difficulty"):
+                    stats["difficulties"][row["difficulty"]] += 1
+                
+                # 统计时长
+                if row.get("estimated_duration"):
+                    try:
+                        duration = int(row["estimated_duration"])
+                        stats["durations"].append(duration)
+                    except ValueError:
+                        pass
+                
+                # 统计积分
+                if row.get("points"):
+                    try:
+                        points = int(row["points"])
+                        stats["points"].append(points)
+                    except ValueError:
+                        pass
+                
+                # 收集唯一值
+                if row.get("location_name"):
+                    stats["locations"].add(row["location_name"])
+                if row.get("npc_id"):
+                    stats["npcs"].add(row["npc_id"])
+                if row.get("course_code"):
+                    stats["courses"].add(row["course_code"])
+                
+                # 字段完整性统计
+                for field, value in row.items():
+                    if field not in stats["field_stats"]:
+                        stats["field_stats"][field] = {"filled": 0, "empty": 0}
+                    
+                    if value and value.strip():
+                        stats["field_stats"][field]["filled"] += 1
+                    else:
+                        stats["field_stats"][field]["empty"] += 1
         
-        for row in reader:
-            stats['total_tasks'] += 1
-            
-            # 统计分类
-            stats['categories'][row.get('category', 'Unknown')] += 1
-            
-            # 统计难度
-            stats['difficulties'][row.get('difficulty', 'Unknown')] += 1
-            
-            # 统计状态
-            stats['statuses'][row.get('status', 'Unknown')] += 1
-            
-            # 统计课程
-            course = row.get('course_code', '').strip()
-            if course:
-                stats['courses'][course] += 1
-            else:
-                stats['courses']['无课程关联'] += 1
-            
-            # 统计时长
-            try:
-                duration = int(row.get('estimated_duration', 0))
-                total_duration += duration
-                stats['duration_range']['min'] = min(stats['duration_range']['min'], duration)
-                stats['duration_range']['max'] = max(stats['duration_range']['max'], duration)
-            except ValueError:
-                pass
-            
-            # 统计地点和NPC
-            stats['locations'].add(row.get('location_name', 'Unknown'))
-            stats['npcs'].add(row.get('npc_id', 'Unknown'))
-    
-    if stats['total_tasks'] > 0:
-        stats['avg_duration'] = total_duration / stats['total_tasks']
-    
-    # 转换集合为计数
-    stats['unique_locations'] = len(stats['locations'])
-    stats['unique_npcs'] = len(stats['npcs'])
-    del stats['locations']
-    del stats['npcs']
+        # 计算平均值
+        if stats["durations"]:
+            stats["avg_duration"] = sum(stats["durations"]) / len(stats["durations"])
+            stats["min_duration"] = min(stats["durations"])
+            stats["max_duration"] = max(stats["durations"])
+        
+        if stats["points"]:
+            stats["avg_points"] = sum(stats["points"]) / len(stats["points"])
+            stats["min_points"] = min(stats["points"])
+            stats["max_points"] = max(stats["points"])
+        
+        # 计算字段完整率
+        for field_name, field_data in stats["field_stats"].items():
+            total = field_data["filled"] + field_data["empty"]
+            if total > 0:
+                field_data["completion_rate"] = field_data["filled"] / total
+        
+        # 转换集合为列表以便JSON序列化
+        stats["locations"] = len(stats["locations"])
+        stats["npcs"] = len(stats["npcs"])
+        stats["courses"] = len(stats["courses"])
+        
+    except Exception as e:
+        return {"error": f"读取文件时出错: {str(e)}"}
     
     return stats
 
 def analyze_task_kb_jsonl(file_path: str) -> Dict[str, Any]:
-    """分析任务知识库 JSONL 文件"""
+    """分析 task_kb.jsonl 文件"""
+    if not os.path.exists(file_path):
+        return {"error": f"文件不存在: {file_path}"}
+    
     stats = {
-        'total_records': 0,
-        'knowledge_types': Counter(),
-        'difficulties': Counter(),
-        'avg_content_length': 0,
-        'content_length_range': {'min': float('inf'), 'max': 0},
-        'avg_tags_count': 0,
-        'all_tags': Counter(),
-        'courses': Counter(),
-        'avg_estimated_time': 0
+        "total_records": 0,
+        "knowledge_types": Counter(),
+        "task_ids": set(),
+        "tags": Counter(),
+        "field_stats": {}
     }
     
-    total_content_length = 0
-    total_tags_count = 0
-    total_estimated_time = 0
-    
-    with open(file_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
                 
-            try:
-                data = json.loads(line)
-                stats['total_records'] += 1
-                
-                # 统计知识类型
-                stats['knowledge_types'][data.get('knowledge_type', 'Unknown')] += 1
-                
-                # 统计难度
-                stats['difficulties'][data.get('difficulty', 'Unknown')] += 1
-                
-                # 统计内容长度
-                content = data.get('content', '')
-                content_length = len(content)
-                total_content_length += content_length
-                stats['content_length_range']['min'] = min(stats['content_length_range']['min'], content_length)
-                stats['content_length_range']['max'] = max(stats['content_length_range']['max'], content_length)
-                
-                # 统计标签
-                tags = data.get('tags', [])
-                if isinstance(tags, list):
-                    total_tags_count += len(tags)
-                    for tag in tags:
-                        stats['all_tags'][tag] += 1
-                
-                # 统计课程
-                course = data.get('course_code')
-                if course:
-                    stats['courses'][course] += 1
-                else:
-                    stats['courses']['无课程关联'] += 1
-                
-                # 统计预估时间
-                estimated_time = data.get('estimated_time', 0)
-                if isinstance(estimated_time, int):
-                    total_estimated_time += estimated_time
+                try:
+                    record = json.loads(line)
+                    stats["total_records"] += 1
                     
-            except json.JSONDecodeError:
-                continue
-    
-    if stats['total_records'] > 0:
-        stats['avg_content_length'] = total_content_length / stats['total_records']
-        stats['avg_tags_count'] = total_tags_count / stats['total_records']
-        stats['avg_estimated_time'] = total_estimated_time / stats['total_records']
+                    # 统计知识类型
+                    if record.get("knowledge_type"):
+                        stats["knowledge_types"][record["knowledge_type"]] += 1
+                    
+                    # 收集任务ID
+                    if record.get("task_id"):
+                        stats["task_ids"].add(record["task_id"])
+                    
+                    # 统计标签
+                    if record.get("tags") and isinstance(record["tags"], list):
+                        for tag in record["tags"]:
+                            stats["tags"][tag] += 1
+                    
+                    # 字段完整性统计
+                    for field, value in record.items():
+                        if field not in stats["field_stats"]:
+                            stats["field_stats"][field] = {"filled": 0, "empty": 0}
+                        
+                        if value is not None and str(value).strip():
+                            stats["field_stats"][field]["filled"] += 1
+                        else:
+                            stats["field_stats"][field]["empty"] += 1
+                
+                except json.JSONDecodeError as e:
+                    print(f"第 {line_num} 行JSON解析错误: {e}")
+                    continue
+        
+        # 计算字段完整率
+        for field_name, field_data in stats["field_stats"].items():
+            total = field_data["filled"] + field_data["empty"]
+            if total > 0:
+                field_data["completion_rate"] = field_data["filled"] / total
+        
+        # 转换集合为数量
+        stats["unique_task_ids"] = len(stats["task_ids"])
+        stats["task_ids"] = list(stats["task_ids"])  # 保留列表用于验证
+        
+    except Exception as e:
+        return {"error": f"读取文件时出错: {str(e)}"}
     
     return stats
 
-def print_stats():
-    """打印统计信息"""
-    print("📊 CityU Campus Tasks - 数据统计分析")
+def print_analysis_report(tasks_stats: Dict[str, Any], kb_stats: Dict[str, Any]):
+    """打印分析报告"""
+    print("=" * 60)
+    print("🎯 CityU Campus Tasks 数据分析报告")
     print("=" * 60)
     
-    # 获取文件路径
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
-    csv_file = os.path.join(data_dir, 'tasks.csv')
-    jsonl_file = os.path.join(data_dir, 'task_kb.jsonl')
-    
-    # 分析任务数据
-    print("\n🎯 任务数据统计 (tasks.csv)")
-    print("-" * 40)
-    
-    if os.path.exists(csv_file):
-        task_stats = analyze_tasks_csv(csv_file)
+    # Tasks CSV 分析
+    if "error" not in tasks_stats:
+        print("\n📊 任务数据 (tasks.csv) 分析:")
+        print(f"  总任务数: {tasks_stats['total_tasks']} 个")
         
-        print(f"📋 总任务数: {task_stats['total_tasks']}")
-        print(f"⏱️  平均时长: {task_stats['avg_duration']:.1f} 分钟")
-        print(f"📍 独特地点: {task_stats['unique_locations']} 个")
-        print(f"🤖 关联NPC: {task_stats['unique_npcs']} 个")
+        if tasks_stats.get("avg_duration"):
+            print(f"  平均时长: {tasks_stats['avg_duration']:.1f} 分钟")
+            print(f"  时长范围: {tasks_stats['min_duration']}-{tasks_stats['max_duration']} 分钟")
         
-        print(f"\n📂 任务分类分布:")
-        for category, count in task_stats['categories'].most_common():
-            percentage = (count / task_stats['total_tasks']) * 100
-            print(f"  {category}: {count} ({percentage:.1f}%)")
+        if tasks_stats.get("avg_points"):
+            print(f"  平均积分: {tasks_stats['avg_points']:.1f} 分")
+            print(f"  积分范围: {tasks_stats['min_points']}-{tasks_stats['max_points']} 分")
         
-        print(f"\n⭐ 难度分布:")
-        for difficulty, count in task_stats['difficulties'].most_common():
-            percentage = (count / task_stats['total_tasks']) * 100
-            print(f"  {difficulty}: {count} ({percentage:.1f}%)")
+        print(f"  独特地点: {tasks_stats['locations']} 个")
+        print(f"  关联NPC: {tasks_stats['npcs']} 个")
+        print(f"  涉及课程: {tasks_stats['courses']} 门")
         
-        print(f"\n📚 课程关联:")
-        for course, count in task_stats['courses'].most_common():
-            percentage = (count / task_stats['total_tasks']) * 100
-            print(f"  {course}: {count} ({percentage:.1f}%)")
-            
-        print(f"\n⏰ 时长范围: {task_stats['duration_range']['min']}-{task_stats['duration_range']['max']} 分钟")
+        print("\n  📈 分类分布:")
+        for category, count in tasks_stats["categories"].most_common():
+            percentage = (count / tasks_stats["total_tasks"]) * 100
+            print(f"    {category}: {count} 个 ({percentage:.1f}%)")
+        
+        print("\n  🎚️ 难度分布:")
+        for difficulty, count in tasks_stats["difficulties"].most_common():
+            percentage = (count / tasks_stats["total_tasks"]) * 100
+            print(f"    {difficulty}: {count} 个 ({percentage:.1f}%)")
     else:
-        print("❌ tasks.csv 文件不存在")
+        print(f"\n❌ 任务数据分析失败: {tasks_stats['error']}")
     
-    # 分析知识库数据
-    print("\n📚 知识库数据统计 (task_kb.jsonl)")
-    print("-" * 40)
-    
-    if os.path.exists(jsonl_file):
-        kb_stats = analyze_task_kb_jsonl(jsonl_file)
+    # Task KB JSONL 分析
+    if "error" not in kb_stats:
+        print(f"\n📚 知识库数据 (task_kb.jsonl) 分析:")
+        print(f"  总记录数: {kb_stats['total_records']} 条")
+        print(f"  关联任务: {kb_stats['unique_task_ids']} 个")
         
-        print(f"📖 总知识条目: {kb_stats['total_records']}")
-        print(f"📝 平均内容长度: {kb_stats['avg_content_length']:.1f} 字符")
-        print(f"🏷️  平均标签数: {kb_stats['avg_tags_count']:.1f} 个")
-        print(f"⏱️  平均学习时间: {kb_stats['avg_estimated_time']:.1f} 分钟")
+        print("\n  🧠 知识类型分布:")
+        for knowledge_type, count in kb_stats["knowledge_types"].most_common():
+            percentage = (count / kb_stats["total_records"]) * 100
+            print(f"    {knowledge_type}: {count} 条 ({percentage:.1f}%)")
         
-        print(f"\n📋 知识类型分布:")
-        for knowledge_type, count in kb_stats['knowledge_types'].most_common():
-            percentage = (count / kb_stats['total_records']) * 100
-            print(f"  {knowledge_type}: {count} ({percentage:.1f}%)")
-        
-        print(f"\n🏷️  热门标签 (Top 10):")
-        for tag, count in kb_stats['all_tags'].most_common(10):
-            percentage = (count / kb_stats['total_records']) * 100
-            print(f"  {tag}: {count} ({percentage:.1f}%)")
-        
-        print(f"\n📚 课程关联:")
-        for course, count in kb_stats['courses'].most_common():
-            percentage = (count / kb_stats['total_records']) * 100
-            print(f"  {course}: {count} ({percentage:.1f}%)")
-            
-        print(f"\n📏 内容长度范围: {kb_stats['content_length_range']['min']}-{kb_stats['content_length_range']['max']} 字符")
+        print(f"\n  🏷️ 标签统计:")
+        print(f"    总标签数: {len(kb_stats['tags'])} 个")
+        print("    热门标签:")
+        for tag, count in kb_stats["tags"].most_common(10):
+            print(f"      {tag}: {count} 次")
     else:
-        print("❌ task_kb.jsonl 文件不存在")
+        print(f"\n❌ 知识库数据分析失败: {kb_stats['error']}")
     
-    # 数据质量评估
-    print("\n🔍 数据质量评估")
-    print("-" * 40)
-    
-    if os.path.exists(csv_file) and os.path.exists(jsonl_file):
-        task_stats = analyze_tasks_csv(csv_file)
-        kb_stats = analyze_task_kb_jsonl(jsonl_file)
+    # 数据一致性检查
+    if "error" not in tasks_stats and "error" not in kb_stats:
+        print(f"\n🔗 数据一致性检查:")
+        task_kb_coverage = (kb_stats['unique_task_ids'] / tasks_stats['total_tasks']) * 100
+        print(f"  知识库覆盖率: {task_kb_coverage:.1f}%")
         
-        # 检查数据一致性
-        if task_stats['total_tasks'] == kb_stats['total_records']:
-            print("✅ 任务数据与知识库数据数量一致")
+        if task_kb_coverage >= 100:
+            print("  ✅ 所有任务都有对应的知识库条目")
         else:
-            print(f"⚠️  数据数量不一致: 任务({task_stats['total_tasks']}) vs 知识库({kb_stats['total_records']})")
-        
-        # 检查课程覆盖
-        course_tasks = sum(1 for course in task_stats['courses'] if course != '无课程关联')
-        course_percentage = (course_tasks / task_stats['total_tasks']) * 100
-        print(f"📚 课程关联覆盖率: {course_percentage:.1f}%")
-        
-        # 检查难度分布
-        difficulty_balance = max(task_stats['difficulties'].values()) / min(task_stats['difficulties'].values())
-        if difficulty_balance <= 2:
-            print("✅ 难度分布相对均衡")
-        else:
-            print("⚠️  难度分布不均衡，建议调整")
+            print("  ⚠️ 部分任务缺少知识库条目")
     
-    print("\n🎯 数据概览完成!")
+    print("\n" + "=" * 60)
+    print("📋 数据质量评估完成")
+    print("=" * 60)
+
+def main():
+    """主函数"""
+    # 分析数据文件
+    tasks_stats = analyze_tasks_csv("data/tasks.csv")
+    kb_stats = analyze_task_kb_jsonl("data/task_kb.jsonl")
+    
+    # 打印报告
+    print_analysis_report(tasks_stats, kb_stats)
+    
+    # 保存详细统计到文件
+    detailed_stats = {
+        "tasks_analysis": tasks_stats,
+        "knowledge_base_analysis": kb_stats,
+        "generated_at": "2025-09-08T02:00:00+08:00"
+    }
+    
+    try:
+        with open("data/analysis_report.json", "w", encoding="utf-8") as f:
+            json.dump(detailed_stats, f, ensure_ascii=False, indent=2, default=str)
+        print(f"\n💾 详细分析报告已保存到: data/analysis_report.json")
+    except Exception as e:
+        print(f"\n❌ 保存分析报告失败: {e}")
 
 if __name__ == "__main__":
-    print_stats()
+    main()

@@ -1,0 +1,231 @@
+{
+  "tasks_analysis": {
+    "total_tasks": 12,
+    "categories": {
+      "学术研究": 4,
+      "安全培训": 1,
+      "社团活动": 1,
+      "志愿服务": 1,
+      "文艺活动": 2,
+      "创业实践": 1,
+      "体育运动": 1,
+      "生活体验": 1
+    },
+    "difficulties": {
+      "初级": 7,
+      "中级": 3,
+      "高级": 2
+    },
+    "locations": 12,
+    "npcs": 12,
+    "courses": 2,
+    "durations": [
+      60,
+      90,
+      45,
+      120,
+      240,
+      180,
+      300,
+      60,
+      90,
+      150,
+      120,
+      90
+    ],
+    "points": [],
+    "field_stats": {
+      "task_id": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "title": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "description": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "category": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "location_name": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "latitude": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "longitude": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "difficulty": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "estimated_duration": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "prerequisites": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "rewards": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "status": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "created_at": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "updated_at": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "npc_id": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "course_code": {
+        "filled": 4,
+        "empty": 8,
+        "completion_rate": 0.3333333333333333
+      }
+    },
+    "avg_duration": 128.75,
+    "min_duration": 45,
+    "max_duration": 300
+  },
+  "knowledge_base_analysis": {
+    "total_records": 12,
+    "knowledge_types": {
+      "procedure": 1,
+      "safety_guide": 1,
+      "interview_tips": 1,
+      "guide_script": 1,
+      "project_requirements": 1,
+      "photography_guide": 1,
+      "business_plan": 1,
+      "fitness_plan": 1,
+      "performance_guide": 1,
+      "lab_procedure": 1,
+      "food_review": 1,
+      "academic_notes": 1
+    },
+    "task_ids": [
+      "T009",
+      "T003",
+      "T004",
+      "T010",
+      "T011",
+      "T006",
+      "T007",
+      "T008",
+      "T002",
+      "T001",
+      "T005",
+      "T012"
+    ],
+    "tags": {
+      "图书馆": 1,
+      "学术研究": 1,
+      "文献检索": 1,
+      "实验室": 1,
+      "安全培训": 1,
+      "操作规范": 1,
+      "学生会": 1,
+      "面试": 1,
+      "社团活动": 1,
+      "校园导览": 1,
+      "志愿服务": 1,
+      "校园历史": 1,
+      "数据结构": 1,
+      "编程项目": 1,
+      "算法": 1,
+      "摄影": 1,
+      "环保": 1,
+      "文艺活动": 1,
+      "创业": 1,
+      "商业计划": 1,
+      "路演": 1,
+      "健身": 1,
+      "体育运动": 1,
+      "健康": 1,
+      "文化表演": 1,
+      "国际交流": 1,
+      "艺术": 1,
+      "电路分析": 1,
+      "实验": 1,
+      "工程": 1,
+      "美食": 1,
+      "评测": 1,
+      "校园生活": 1,
+      "学术讲座": 1,
+      "学习": 1,
+      "知识拓展": 1
+    },
+    "field_stats": {
+      "task_id": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "knowledge_type": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "content": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "tags": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "difficulty": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "estimated_time": {
+        "filled": 12,
+        "empty": 0,
+        "completion_rate": 1.0
+      },
+      "course_code": {
+        "filled": 4,
+        "empty": 8,
+        "completion_rate": 0.3333333333333333
+      }
+    },
+    "unique_task_ids": 12
+  },
+  "generated_at": "2025-09-08T02:00:00+08:00"
+}
