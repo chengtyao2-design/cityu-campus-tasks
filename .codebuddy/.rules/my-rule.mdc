@@ -1,0 +1,126 @@
+# my-rule
+# my-rule.mdc — Single Source of Truth
+
+## Project
+- Name: CityU Campus Tasks (Open-World Map × NPC Agent)
+- Dev Flow (recommended): CodeBuddy IDE → GitHub → Cloud Studio (import + iterate + demo)
+- License: MIT (adjust if institutional policy requires)
+
+## Tech Stack
+- Frontend: React + TypeScript + Vite + Tailwind CSS; Map: **Leaflet** (default). Optional Mapbox via `MAPBOX_TOKEN`.
+- Backend: **FastAPI** (Python 3.10+). Alternative Node/Express allowed only if keeping the same API contracts.
+- Embeddings: `bge-small-zh` (or equivalent small Chinese embedding).
+- LLM: configurable via env; must support Chinese. All calls go through a thin client with timeout/retry.
+- Storage: `data/` folder (CSV/JSONL) + in-memory index + optional FAISS on disk.
+
+## Repository Layout
+```
+/frontend/        # React app
+  src/…
+/backend/
+  app/main.py
+  app/routers/*.py
+  app/core/{config.py,logging.py}
+  app/services/{rag.py,search.py,geocode.py}
+  app/models/{task.py,schemas.py}
+  tests/
+data/
+  tasks.csv
+  task_kb.jsonl
+scripts/
+  build_index.py
+docs/
+  cloudstudio.md
+.env.example
+Makefile
+README.md
+```
+
+## Ports & CORS
+- Backend: `:8000`
+- Frontend dev: `:5173`
+- Enable CORS for the frontend origin and Cloud Studio preview domains.
+
+## Env Vars (`.env.example`)
+```
+LLM_PROVIDER=local|openai|dashscope|others
+LLM_MODEL=qwen2.5|gpt-4o-mini|…
+EMBEDDING_MODEL=bge-small-zh
+LLM_API_KEY=__REQUIRED__
+MAPBOX_TOKEN=__OPTIONAL__
+LOG_LEVEL=INFO
+```
+
+## Data Schemas
+### Task (CSV)
+- Columns: `id,title,category,start_time,end_time,location_text,lat,lng,contact,source_url,attachments`
+- `category ∈ {course,exam,seminar,event,service}`; times in ISO8601.
+
+### TaskKB (JSONL)
+```json
+{"task_id":"EE3206-midterm","summary":"…","rules":["…"],"faq":[{"q":"…","a":"…","source_span":"doc#p2"}],"materials":[{"title":"Syllabus","url":"…"}],"last_update":"2025-09-01"}
+```
+
+## API Contracts (stable)
+- `GET /healthz` → `{"status":"ok"}`
+- `GET /tasks?from=&to=&category=&course=&limit=&offset=`  
+  Returns `[ { id, title, category, start_time, end_time, lat, lng } ]`
+- `GET /tasks/{id}`  
+  Returns `{ task: Task, kb_summary, materials[], contact }`
+- `POST /tasks/search` body: `{ "query": "string", "limit": 10 }`  
+  Returns `[ { task_id, title, score, lat, lng } ]`
+- `POST /npc/{task_id}/chat` body: `{ "question": "string", "top_k": 4 }`  
+  Returns:
+  ```json
+  {
+    "answer": "…",
+    "citations": [ { "source_span": "doc#p2", "title": "…", "url": "…" } ],
+    "map_anchor": { "lat": 22.337, "lng": 114.173 },
+    "suggestions": [ { "task_id": "…", "title": "…" } ],
+    "uncertain_reason": "optional"
+  }
+  ```
+- Error shape: `{ "error_code": "STRING", "message": "HUMAN_READABLE" }` with proper HTTP status.
+
+## RAG Rules
+- Chunk size ≈ 400–700 chars, overlap 80–120. Default `top_k=4`.
+- If no chunk with similarity ≥ threshold (default 0.35), return `uncertain_reason` and suggest `/tasks/search`.
+- Always include citations. Do not fabricate facts outside provided chunks.
+
+## Performance Budgets
+- Map first meaningful paint ≤ **1.5s**
+- NPC first answer P95 ≤ **2.5s**
+- Index build ≤ **30s** on sample data (≤1k chunks)
+
+## Quality Gates
+- Lint/format: `ruff`, `black`, `eslint`, `prettier`
+- Type-check: `mypy` + `tsc --noEmit`
+- Tests: `pytest` (backend), `vitest` (frontend); coverage ≥ **70%** on critical modules
+- CI: GitHub Actions runs lint, type, build, tests on push/pr
+
+## Makefile Targets
+```
+make setup        # install deps (frontend/backend)
+make dev          # run backend :8000 and frontend :5173
+make index        # build embeddings & FAISS from data/
+make test         # run all tests
+make demo         # one-shot: index + start both + print URLs
+```
+
+## Coding & Output Conventions
+- UTF-8, LF line endings, POSIX paths.
+- Config via env only; never commit secrets.
+- When generating code, prefer full file content or unified diff; avoid placeholders.
+- Keep changes minimal; preserve public contracts above.
+
+## Geocoding & Fallback
+- Primary: static mapping table in `geocode.py`; optional online provider if token available.
+- If missing coordinates: snap to the building entrance marker.
+
+## Security & Privacy
+- Use only public/authorized campus data.
+- Anonymize logs (no PII). Logs: JSON lines; levels per `LOG_LEVEL`.
+
+## Cloud Studio Notes
+- Import GitHub repo; expose ports 8000/5173.
+- Run `make demo`. Share the space
