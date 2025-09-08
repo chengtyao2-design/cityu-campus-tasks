@@ -51,11 +51,11 @@ class BM25SearchEngine:
         # 匹配中文字符、英文单词、数字
         tokens = re.findall(r'[\u4e00-\u9fff]+|[a-zA-Z0-9]+', text)
         
-        # 对中文进行字符级分词
+        # 对中文和英文都进行处理
         result = []
         for token in tokens:
             if re.match(r'[\u4e00-\u9fff]+', token):
-                # 中文字符级分词
+                # 中文：只进行字符级分词
                 result.extend(list(token))
             else:
                 # 英文单词保持完整
@@ -94,8 +94,9 @@ class BM25SearchEngine:
         
         # 计算 IDF
         for token, freq in self.doc_freqs.items():
-            # BM25 IDF 公式: log((N - df + 0.5) / (df + 0.5))
-            self.idf[token] = math.log((self.corpus_size - freq + 0.5) / (freq + 0.5))
+            # 使用标准的IDF公式: log(N / df)，为常见词汇添加最小值
+            idf_value = math.log(self.corpus_size / freq)
+            self.idf[token] = max(0.1, idf_value)  # 最小IDF值为0.1
         
         self.indexed = True
         logger.info(f"搜索索引构建完成，词汇数量: {len(self.idf)}")
@@ -121,7 +122,10 @@ class BM25SearchEngine:
         doc_length = self.doc_len[doc_index]
         
         score = 0.0
+        matched_tokens = 0
+        
         for token in query_tokens:
+            # 如果词汇不在索引中，跳过
             if token not in self.idf:
                 continue
                 
@@ -130,6 +134,8 @@ class BM25SearchEngine:
             if tf == 0:
                 continue
                 
+            matched_tokens += 1
+            
             # IDF
             idf = self.idf[token]
             
@@ -138,6 +144,10 @@ class BM25SearchEngine:
             denominator = tf + self.k1 * (1 - self.b + self.b * (doc_length / self.avgdl))
             score += idf * (numerator / denominator)
         
+        # 如果没有匹配的词汇，返回0
+        if matched_tokens == 0:
+            return 0.0
+            
         return score
     
     def search(self, query: str, top_n: int = 10) -> List[Dict[str, Any]]:
@@ -164,7 +174,21 @@ class BM25SearchEngine:
         scores = []
         for i, doc in enumerate(self.documents):
             score = self.get_bm25_score(query_tokens, i)
-            if score > 0:  # 只返回有匹配的结果
+            
+            # 计算匹配度：匹配的查询词数量 / 总查询词数量
+            content = f"{doc.get('title', '')} {doc.get('description', '')}"
+            doc_tokens = set(self.tokenize(content))
+            matched_query_tokens = set(query_tokens) & doc_tokens
+            match_ratio = len(matched_query_tokens) / len(set(query_tokens)) if query_tokens else 0
+            
+            # 严格的匹配要求：
+            # 1. 分数必须大于0
+            # 2. 必须有匹配的词汇
+            # 3. 对于包含英文的查询，匹配度要求更高
+            has_english = any(token.isalpha() and token.isascii() for token in query_tokens)
+            min_match_ratio = 0.8 if has_english else 0.3
+            
+            if score > 0 and len(matched_query_tokens) > 0 and match_ratio >= min_match_ratio:
                 scores.append({
                     'task_id': doc.get('task_id', ''),
                     'title': doc.get('title', ''),
