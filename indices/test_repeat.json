@@ -1,0 +1,248 @@
+{
+  "embedding_dim": 512,
+  "total_vectors": 12,
+  "chunks": [
+    {
+      "chunk_id": "T001_0",
+      "text": "文献检索步骤：1. 确定检索主题和关键词 2. 选择合适的数据库（如Web of Science、IEEE Xplore） 3. 使用布尔逻辑组合关键词 4. 筛选和评估检索结果 5. 整理和引用文献",
+      "source": "T001",
+      "metadata": {
+        "task_id": "T001",
+        "knowledge_type": "procedure",
+        "tags": [
+          "图书馆",
+          "学术研究",
+          "文献检索"
+        ],
+        "difficulty": "初级",
+        "estimated_time": 60,
+        "course_code": "CS2402"
+      },
+      "start_pos": 0,
+      "end_pos": 100
+    },
+    {
+      "chunk_id": "T002_0",
+      "text": "实验室安全要点：1. 进入实验室前必须穿戴防护用品 2. 熟悉紧急出口和安全设备位置 3. 严格按照操作规程使用设备 4. 化学品使用后及时清理 5. 发生意外立即报告实验室管理员",
+      "source": "T002",
+      "metadata": {
+        "task_id": "T002",
+        "knowledge_type": "safety_guide",
+        "tags": [
+          "实验室",
+          "安全培训",
+          "操作规范"
+        ],
+        "difficulty": "初级",
+        "estimated_time": 90,
+        "course_code": "EE3001"
+      },
+      "start_pos": 0,
+      "end_pos": 90
+    },
+    {
+      "chunk_id": "T003_0",
+      "text": "学生会面试技巧：1. 提前了解学生会各部门职能 2. 准备自我介绍和个人经历分享 3. 展示团队合作和领导能力 4. 表达对学生工作的热情和责任心 5. 准备应对常见面试问题",
+      "source": "T003",
+      "metadata": {
+        "task_id": "T003",
+        "knowledge_type": "interview_tips",
+        "tags": [
+          "学生会",
+          "面试",
+          "社团活动"
+        ],
+        "difficulty": "中级",
+        "estimated_time": 45,
+        "course_code": null
+      },
+      "start_pos": 0,
+      "end_pos": 87
+    },
+    {
+      "chunk_id": "T004_0",
+      "text": "校园导览要点：1. 香港城市大学成立于1984年，是一所国际化研究型大学 2. 主要建筑包括邵逸夫图书馆、学术楼、宿舍区等 3. 介绍各学院特色和专业设置 4. 分享校园文化和学生生活 5. 回答访客关于入学和校园设施的问题",
+      "source": "T004",
+      "metadata": {
+        "task_id": "T004",
+        "knowledge_type": "guide_script",
+        "tags": [
+          "校园导览",
+          "志愿服务",
+          "校园历史"
+        ],
+        "difficulty": "初级",
+        "estimated_time": 120,
+        "course_code": null
+      },
+      "start_pos": 0,
+      "end_pos": 112
+    },
+    {
+      "chunk_id": "T005_0",
+      "text": "数据结构项目要求：1. 实现至少3种基本数据结构（栈、队列、树） 2. 包含增删改查等基本操作 3. 分析时间和空间复杂度 4. 编写完整的测试用例 5. 提交源代码和技术报告",
+      "source": "T005",
+      "metadata": {
+        "task_id": "T005",
+        "knowledge_type": "project_requirements",
+        "tags": [
+          "数据结构",
+          "编程项目",
+          "算法"
+        ],
+        "difficulty": "高级",
+        "estimated_time": 240,
+        "course_code": "CS2402"
+      },
+      "start_pos": 0,
+      "end_pos": 88
+    },
+    {
+      "chunk_id": "T006_0",
+      "text": "环保摄影技巧：1. 选择合适的拍摄时间和光线 2. 捕捉校园绿色元素（植物、节能设施等） 3. 运用构图技巧突出环保主题 4. 后期处理增强视觉效果 5. 配上有意义的标题和说明",
+      "source": "T006",
+      "metadata": {
+        "task_id": "T006",
+        "knowledge_type": "photography_guide",
+        "tags": [
+          "摄影",
+          "环保",
+          "文艺活动"
+        ],
+        "difficulty": "初级",
+        "estimated_time": 180,
+        "course_code": null
+      },
+      "start_pos": 0,
+      "end_pos": 89
+    },
+    {
+      "chunk_id": "T007_0",
+      "text": "商业计划书结构：1. 执行摘要（项目概述和核心价值） 2. 市场分析（目标市场和竞争分析） 3. 产品/服务描述 4. 营销策略和销售计划 5. 财务预测和资金需求 6. 团队介绍和管理结构",
+      "source": "T007",
+      "metadata": {
+        "task_id": "T007",
+        "knowledge_type": "business_plan",
+        "tags": [
+          "创业",
+          "商业计划",
+          "路演"
+        ],
+        "difficulty": "高级",
+        "estimated_time": 300,
+        "course_code": null
+      },
+      "start_pos": 0,
+      "end_pos": 95
+    },
+    {
+      "chunk_id": "T008_0",
+      "text": "健身训练计划：1. 热身运动（10分钟有氧运动） 2. 力量训练（胸、背、腿部肌群） 3. 核心训练（腹肌和腰部稳定性） 4. 柔韧性训练（拉伸和放松） 5. 记录训练数据和身体变化",
+      "source": "T008",
+      "metadata": {
+        "task_id": "T008",
+        "knowledge_type": "fitness_plan",
+        "tags": [
+          "健身",
+          "体育运动",
+          "健康"
+        ],
+        "difficulty": "初级",
+        "estimated_time": 60,
+        "course_code": null
+      },
+      "start_pos": 0,
+      "end_pos": 91
+    },
+    {
+      "chunk_id": "T009_0",
+      "text": "文化表演准备：1. 选择具有代表性的文化元素 2. 设计服装和道具体现文化特色 3. 编排舞蹈或表演动作 4. 准备背景音乐和解说词 5. 团队排练和协调配合",
+      "source": "T009",
+      "metadata": {
+        "task_id": "T009",
+        "knowledge_type": "performance_guide",
+        "tags": [
+          "文化表演",
+          "国际交流",
+          "艺术"
+        ],
+        "difficulty": "中级",
+        "estimated_time": 90,
+        "course_code": null
+      },
+      "start_pos": 0,
+      "end_pos": 79
+    },
+    {
+      "chunk_id": "T010_0",
+      "text": "电路分析实验步骤：1. 根据电路图搭建实验电路 2. 使用万用表测量电压和电流 3. 记录实验数据并与理论值对比 4. 分析误差原因和改进方法 5. 撰写实验报告包含数据分析和结论",
+      "source": "T010",
+      "metadata": {
+        "task_id": "T010",
+        "knowledge_type": "lab_procedure",
+        "tags": [
+          "电路分析",
+          "实验",
+          "工程"
+        ],
+        "difficulty": "中级",
+        "estimated_time": 150,
+        "course_code": "EE3001"
+      },
+      "start_pos": 0,
+      "end_pos": 90
+    },
+    {
+      "chunk_id": "T011_0",
+      "text": "美食评测要点：1. 品尝不同食堂的招牌菜品 2. 从味道、价格、营养、环境等维度评价 3. 拍摄食物照片记录外观 4. 了解菜品制作工艺和食材来源 5. 撰写客观公正的评测报告",
+      "source": "T011",
+      "metadata": {
+        "task_id": "T011",
+        "knowledge_type": "food_review",
+        "tags": [
+          "美食",
+          "评测",
+          "校园生活"
+        ],
+        "difficulty": "初级",
+        "estimated_time": 120,
+        "course_code": null
+      },
+      "start_pos": 0,
+      "end_pos": 88
+    },
+    {
+      "chunk_id": "T012_0",
+      "text": "学术讲座参与指南：1. 提前了解讲座主题和讲者背景 2. 准备相关问题和思考点 3. 认真记录讲座要点和新观点 4. 积极参与问答环节 5. 会后整理笔记并思考如何应用到学习中",
+      "source": "T012",
+      "metadata": {
+        "task_id": "T012",
+        "knowledge_type": "academic_notes",
+        "tags": [
+          "学术讲座",
+          "学习",
+          "知识拓展"
+        ],
+        "difficulty": "初级",
+        "estimated_time": 90,
+        "course_code": null
+      },
+      "start_pos": 0,
+      "end_pos": 88
+    }
+  ],
+  "chunk_id_to_idx": {
+    "T001_0": 0,
+    "T002_0": 1,
+    "T003_0": 2,
+    "T004_0": 3,
+    "T005_0": 4,
+    "T006_0": 5,
+    "T007_0": 6,
+    "T008_0": 7,
+    "T009_0": 8,
+    "T010_0": 9,
+    "T011_0": 10,
+    "T012_0": 11
+  }
+}

@@ -1,0 +1,5 @@
+# 嵌入和向量索引依赖
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.0
+numpy>=1.21.0
+torch>=1.9.0
