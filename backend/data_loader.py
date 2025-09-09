@@ -344,7 +344,8 @@ class DataLoader:
         skipped_count = 0
         
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            # 使用 utf-8-sig 以自动去除可能存在的 BOM，避免表头字段名异常
+            with open(file_path, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 
                 for row_num, row in enumerate(reader, 1):
@@ -492,13 +493,21 @@ class DataLoader:
         logger.info(f"知识库加载完成: 成功 {loaded_count} 个, 跳过 {skipped_count} 个")
         return True
     
-    def load_all_data(self, tasks_file: str = "../data/tasks.csv", 
-                     knowledge_file: str = "../data/task_kb.jsonl") -> bool:
+    def load_all_data(self, tasks_file: str = None, 
+                     knowledge_file: str = None) -> bool:
         """加载所有数据"""
         logger.info("开始加载所有数据")
         
         # 重置统计信息
         self.load_stats['last_load_time'] = datetime.now().isoformat()
+        
+        # 解析默认数据路径为绝对路径（相对于本文件所在目录）
+        base_dir = os.path.dirname(__file__)
+        data_dir = os.path.abspath(os.path.join(base_dir, '..', 'data'))
+        if tasks_file is None:
+            tasks_file = os.path.join(data_dir, 'tasks.csv')
+        if knowledge_file is None:
+            knowledge_file = os.path.join(data_dir, 'task_kb.jsonl')
         
         # 加载任务数据
         tasks_success = self.load_tasks_csv(tasks_file)
