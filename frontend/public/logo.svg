@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M24 4L4 24L24 44L44 24L24 4Z" fill="rgb(var(--color-primary))" stroke="rgb(var(--color-primary))" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M34 24L24 34L14 24L24 14L34 24Z" fill="rgb(var(--color-bg-primary))" stroke="rgb(var(--color-bg-primary))" stroke-width="2" stroke-linejoin="round"/>
+</svg>
