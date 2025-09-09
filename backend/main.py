@@ -4,11 +4,16 @@ from fastapi.responses import JSONResponse
 import os
 import logging
 import time
+import asyncio
 from datetime import datetime
 from typing import Optional, List
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import math
+
+# 导入中间件和配置
+from middleware import setup_middleware, get_middleware_stats
+from config import app_config, get_middleware_config
 
 # 导入数据加载器和模式
 from data_loader import data_loader, initialize_data_loader
@@ -81,6 +86,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 设置中间件
+middleware_config = get_middleware_config()
+middleware_instances = setup_middleware(app, middleware_config)
+
+# 添加中间件到应用
+if middleware_instances.get('timeout'):
+    app.add_middleware(type(middleware_instances['timeout']))
+
+if middleware_instances.get('rate_limiter'):
+    app.add_middleware(type(middleware_instances['rate_limiter']))
+
+if middleware_instances.get('error_handler'):
+    app.add_middleware(type(middleware_instances['error_handler']))
 
 # 映射字典
 CATEGORY_MAPPING = {
@@ -477,12 +496,103 @@ async def debug_reload():
         raise HTTPException(status_code=500, detail="重新加载数据失败")
 
 
+@app.get("/api/middleware/stats")
+async def get_middleware_stats():
+    """获取中间件统计信息"""
+    try:
+        stats = get_middleware_stats()
+        return {
+            "middleware_stats": stats,
+            "config": {
+                "timeout": {
+                    "request_timeout": app_config.timeout.request_timeout,
+                    "llm_timeout": app_config.timeout.llm_timeout
+                },
+                "retry": {
+                    "max_retries": app_config.retry.max_retries,
+                    "base_delay": app_config.retry.base_delay,
+                    "max_delay": app_config.retry.max_delay
+                },
+                "rate_limit": {
+                    "enabled": app_config.rate_limit.enabled,
+                    "calls": app_config.rate_limit.calls,
+                    "period": app_config.rate_limit.period
+                }
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"获取中间件统计失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取中间件统计失败")
+
+
+@app.get("/api/performance/metrics")
+async def get_performance_metrics():
+    """获取性能指标"""
+    try:
+        # 这里可以集成更详细的性能监控
+        return {
+            "performance": {
+                "p95_target": app_config.performance.p95_target,
+                "slow_request_threshold": app_config.performance.slow_request_threshold,
+                "enable_metrics": app_config.performance.enable_metrics
+            },
+            "uptime": time.time() - app_start_time,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"获取性能指标失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取性能指标失败")
+
+
+@app.post("/api/test/timeout")
+async def test_timeout():
+    """测试超时处理 (测试接口)"""
+    try:
+        # 模拟长时间处理
+        await asyncio.sleep(35)  # 超过默认超时时间
+        return {"message": "不应该看到这个响应"}
+    except Exception as e:
+        logger.error(f"超时测试失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="超时测试失败")
+
+
+@app.post("/api/test/retry")
+async def test_retry():
+    """测试重试机制 (测试接口)"""
+    try:
+        # 使用包含"timeout"的查询来触发模拟超时
+        task_info = {
+            'task_id': 'TEST_TIMEOUT',
+            'title': '超时测试任务',
+            'description': '用于测试超时和重试机制',
+            'category': 'test',
+            'location_name': '测试地点',
+            'location_lat': 22.0,
+            'location_lng': 114.0
+        }
+        
+        result = await process_npc_chat('TEST_TIMEOUT', 'timeout test question', task_info)
+        
+        return {
+            "message": "重试测试完成",
+            "result": {
+                "answer": result.answer,
+                "uncertain_reason": result.uncertain_reason
+            }
+        }
+    except Exception as e:
+        logger.error(f"重试测试失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="重试测试失败")
+
+
 @app.post("/tasks/search", response_model=SearchResponse, summary="Search Tasks", description="使用 BM25 算法搜索任务")
 async def search_tasks_endpoint(request: SearchRequest):
     """搜索任务"""
     try:
         # 执行搜索
-        results = search_tasks(request.query, request.top_n)
+        top_n = request.top_n if request.top_n is not None else 10
+        results = search_tasks(request.query, top_n)
         
         # 转换为响应格式
         search_results = [
@@ -532,8 +642,8 @@ async def npc_chat(task_id: str, request: ChatRequest):
             'location_lng': task.location_lng
         }
         
-        # 处理聊天请求
-        rag_result = process_npc_chat(task_id, request.question, task_info)
+        # 异步处理聊天请求
+        rag_result = await process_npc_chat(task_id, request.question, task_info)
         
         # 构建响应
         citations = [

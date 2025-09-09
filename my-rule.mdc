@@ -1,0 +1,68 @@
+# CityU Campus Tasks - 项目规则文档
+
+## 项目概述
+开放世界地图 × NPC 智能体校园任务系统
+
+## 技术栈
+- **前端**: React 18 + TypeScript + Vite + Tailwind CSS + Ant Design
+- **路由**: React Router DOM v6
+- **构建工具**: Vite 5
+- **包管理**: npm
+- **端口**: 5173
+
+## 项目结构
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── Layout/AppLayout.tsx     # 主布局组件
+│   │   └── HealthBanner.tsx         # 健康检查横幅
+│   ├── pages/
+│   │   ├── HomePage.tsx             # 首页
+│   │   ├── TasksPage.tsx            # 任务中心
+│   │   └── SettingsPage.tsx         # 设置页面
+│   ├── theme/
+│   │   └── index.ts                 # Ant Design 主题配置
+│   ├── App.tsx                      # 主应用组件
+│   └── App.css                      # 全局样式
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+└── tsconfig.json
+```
+
+## 核心功能
+1. **响应式布局**: 移动端优先设计，支持所有断点
+2. **健康检查**: 实时监控后端服务状态
+3. **路由系统**: 基于React Router的SPA导航
+4. **主题系统**: 统一的设计语言和颜色规范
+5. **移动端适配**: 触摸友好的交互设计
+
+## 开发命令
+- `npm run dev`: 启动开发服务器 (端口5173)
+- `npm run build`: 构建生产版本
+- `npm run type-check`: TypeScript 类型检查
+- `npm run lint`: ESLint 代码检查
+
+## 设计规范
+- **主色调**: #1890ff (Ant Design 蓝)
+- **圆角**: 8px (按钮), 12px (卡片)
+- **字体**: 系统默认字体栈
+- **断点**: xs(480px), sm(576px), md(768px), lg(992px), xl(1200px), xxl(1600px)
+
+## 移动端优化
+- 最小触摸目标: 44px
+- 响应式网格布局
+- 移动端抽屉菜单
+- 触摸友好的交互元素
+
+## 质量保证
+- TypeScript 严格模式
+- ESLint 代码规范
+- 无编译错误
+- 移动端兼容性测试
+
+## 部署要求
+- Node.js 18+
+- 现代浏览器支持
+- 后端API地址: http://localhost:8000

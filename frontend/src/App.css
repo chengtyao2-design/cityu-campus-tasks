@@ -1,1 +1,79 @@
-/* App specific styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for mobile responsiveness */
+@layer components {
+  .container {
+    @apply mx-auto px-4;
+  }
+  
+  /* Mobile-first responsive breakpoints */
+  @media (max-width: 640px) {
+    .container {
+      @apply px-2;
+    }
+  }
+}
+
+/* Ant Design customizations */
+.ant-layout-header {
+  padding: 0 16px !important;
+}
+
+@media (max-width: 768px) {
+  .ant-layout-header {
+    padding: 0 12px !important;
+  }
+}
+
+/* Custom utility classes */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Smooth transitions */
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Mobile touch improvements */
+@media (max-width: 768px) {
+  .ant-btn {
+    min-height: 44px;
+  }
+  
+  .ant-input {
+    min-height: 44px;
+  }
+  
+  .ant-select-selector {
+    min-height: 44px !important;
+  }
+}
+
+/* Loading states */
+.loading-skeleton {
+  @apply animate-pulse bg-gray-200 rounded;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

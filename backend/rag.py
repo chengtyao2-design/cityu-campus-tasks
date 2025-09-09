@@ -1,11 +1,16 @@
 """
 RAG (Retrieval-Augmented Generation) 系统实现
+支持超时和重试机制
 """
+import asyncio
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 import json
 import re
+import time
+
+from config import app_config
 
 logger = logging.getLogger(__name__)
 
@@ -294,9 +299,20 @@ class PromptTemplate:
 
 
 class MockLLMService:
-    """模拟 LLM 服务（用于测试）"""
+    """模拟 LLM 服务（用于测试）支持异步和超时"""
     
-    def __init__(self):
+    def __init__(self, simulate_delay: bool = True, failure_rate: float = 0.0):
+        """
+        初始化模拟LLM服务
+        
+        Args:
+            simulate_delay: 是否模拟网络延迟
+            failure_rate: 模拟失败率 (0.0-1.0)
+        """
+        self.simulate_delay = simulate_delay
+        self.failure_rate = failure_rate
+        self.call_count = 0
+        
         self.responses = {
             "default": {
                 "answer": "根据提供的信息，我可以为您提供以下建议和指导。",
@@ -318,12 +334,19 @@ class MockLLMService:
                 "key_points": ["安全规范", "设备操作", "应急处理"],
                 "actionable_steps": ["参加安全培训", "认真学习规范", "通过安全考核"],
                 "uncertain_aspects": []
+            },
+            "timeout": {
+                "answer": "这是一个超时测试响应，用于验证超时处理机制。",
+                "confidence": "low",
+                "key_points": ["超时测试"],
+                "actionable_steps": ["重试请求"],
+                "uncertain_aspects": ["网络延迟"]
             }
         }
     
-    def generate_response(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
+    async def generate_response(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
         """
-        生成模拟响应
+        异步生成模拟响应
         
         Args:
             system_prompt: 系统提示词
@@ -331,17 +354,50 @@ class MockLLMService:
             
         Returns:
             模拟的 LLM 响应
+            
+        Raises:
+            Exception: 模拟的服务异常
+            asyncio.TimeoutError: 模拟的超时异常
         """
+        self.call_count += 1
+        
+        # 模拟失败
+        import random
+        if random.random() < self.failure_rate:
+            if random.random() < 0.5:
+                raise asyncio.TimeoutError("模拟LLM服务超时")
+            else:
+                raise Exception("模拟LLM服务异常")
+        
+        # 模拟网络延迟
+        if self.simulate_delay:
+            # 随机延迟 0.5-2.0 秒
+            delay = random.uniform(0.5, 2.0)
+            
+            # 特殊情况：如果查询包含"timeout"，模拟长时间延迟
+            if "timeout" in user_prompt.lower():
+                delay = random.uniform(5.0, 10.0)
+            
+            await asyncio.sleep(delay)
+        
         # 简单的关键词匹配来选择响应
         for keyword, response in self.responses.items():
             if keyword != "default" and keyword in user_prompt:
                 return response
         
         return self.responses["default"]
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """获取服务统计信息"""
+        return {
+            "total_calls": self.call_count,
+            "failure_rate": self.failure_rate,
+            "simulate_delay": self.simulate_delay
+        }
 
 
 class RAGService:
-    """RAG 服务主类"""
+    """RAG 服务主类，支持异步操作和重试机制"""
     
     def __init__(self, knowledge_retriever: KnowledgeRetriever, llm_service=None):
         """
@@ -354,10 +410,16 @@ class RAGService:
         self.retriever = knowledge_retriever
         self.llm_service = llm_service or MockLLMService()
         self.prompt_template = PromptTemplate()
+        
+        # 从配置获取重试参数
+        self.max_retries = app_config.retry.max_retries
+        self.base_delay = app_config.retry.base_delay
+        self.max_delay = app_config.retry.max_delay
+        self.llm_timeout = app_config.timeout.llm_timeout
     
-    def process_chat_request(self, task_id: str, user_question: str, task_info: Dict[str, Any]) -> RAGResult:
+    async def process_chat_request(self, task_id: str, user_question: str, task_info: Dict[str, Any]) -> RAGResult:
         """
-        处理聊天请求
+        异步处理聊天请求，支持重试机制
         
         Args:
             task_id: 任务ID
@@ -367,6 +429,8 @@ class RAGService:
         Returns:
             RAG 处理结果
         """
+        start_time = time.time()
+        
         try:
             # 1. 检索相关知识
             logger.info(f"检索任务 {task_id} 的相关知识")
@@ -377,9 +441,9 @@ class RAGService:
                 task_info, knowledge_chunks, user_question
             )
             
-            # 3. 调用 LLM
+            # 3. 调用 LLM（带重试机制）
             logger.info(f"调用 LLM 生成回答")
-            llm_response = self.llm_service.generate_response(
+            llm_response = await self._call_llm_with_retry(
                 self.prompt_template.SYSTEM_PROMPT,
                 user_prompt
             )
@@ -409,12 +473,25 @@ class RAGService:
             if not knowledge_chunks or llm_response.get('confidence') == 'low':
                 suggestions = self._generate_suggestions(user_question, task_info)
             
+            # 记录处理时间
+            process_time = time.time() - start_time
+            logger.info(f"RAG 处理完成，耗时: {process_time:.2f}s")
+            
             return RAGResult(
                 answer=llm_response.get('answer', '抱歉，我无法回答这个问题。'),
                 citations=citations,
                 map_anchor=map_anchor,
                 suggestions=suggestions,
                 uncertain_reason=uncertain_reason
+            )
+            
+        except asyncio.TimeoutError:
+            logger.error(f"RAG 处理超时: {task_id}")
+            return RAGResult(
+                answer="抱歉，处理您的问题时超时，请稍后重试。",
+                citations=[],
+                map_anchor={"lat": 0.0, "lng": 0.0},
+                uncertain_reason="请求超时"
             )
             
         except Exception as e:
@@ -425,6 +502,55 @@ class RAGService:
                 map_anchor={"lat": 0.0, "lng": 0.0},
                 uncertain_reason="系统处理错误"
             )
+    
+    async def _call_llm_with_retry(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
+        """
+        带重试机制的LLM调用
+        
+        Args:
+            system_prompt: 系统提示词
+            user_prompt: 用户提示词
+            
+        Returns:
+            LLM响应
+            
+        Raises:
+            Exception: 所有重试都失败后抛出异常
+        """
+        last_exception = None
+        
+        for attempt in range(self.max_retries + 1):
+            try:
+                # 设置超时
+                llm_response = await asyncio.wait_for(
+                    self.llm_service.generate_response(system_prompt, user_prompt),
+                    timeout=self.llm_timeout
+                )
+                
+                logger.info(f"LLM调用成功，尝试次数: {attempt + 1}")
+                return llm_response
+                
+            except asyncio.TimeoutError as e:
+                last_exception = e
+                logger.warning(f"LLM超时，尝试 {attempt + 1}/{self.max_retries + 1}")
+                
+            except Exception as e:
+                last_exception = e
+                logger.warning(f"LLM错误，尝试 {attempt + 1}/{self.max_retries + 1}: {str(e)}")
+            
+            # 如果不是最后一次尝试，则等待后重试
+            if attempt < self.max_retries:
+                if app_config.retry.exponential_backoff:
+                    delay = min(self.base_delay * (2 ** attempt), self.max_delay)
+                else:
+                    delay = self.base_delay
+                
+                logger.info(f"等待 {delay}s 后重试...")
+                await asyncio.sleep(delay)
+        
+        # 所有重试都失败了
+        logger.error(f"LLM调用失败，已重试 {self.max_retries + 1} 次")
+        raise last_exception or Exception("LLM调用失败")
     
     def _generate_suggestions(self, user_question: str, task_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -490,9 +616,9 @@ def initialize_rag_service(knowledge_data: Dict[str, Any]) -> bool:
         return False
 
 
-def process_npc_chat(task_id: str, user_question: str, task_info: Dict[str, Any]) -> RAGResult:
+async def process_npc_chat(task_id: str, user_question: str, task_info: Dict[str, Any]) -> RAGResult:
     """
-    处理 NPC 聊天请求
+    异步处理 NPC 聊天请求
     
     Args:
         task_id: 任务ID
@@ -506,4 +632,4 @@ def process_npc_chat(task_id: str, user_question: str, task_info: Dict[str, Any]
     if not rag_service:
         raise RuntimeError("RAG 服务未初始化")
     
-    return rag_service.process_chat_request(task_id, user_question, task_info)
+    return await rag_service.process_chat_request(task_id, user_question, task_info)
