@@ -2,6 +2,8 @@
 
 开放世界地图 × NPC 智能体校园任务系统
 
+CityU每天会通过CAP（CityUHK Announcement Portal）发布来自学校各部门的信息，但经过调研发现：CityU同学对于每日CAP邮件推送的CTR并不高（尤其是对于非英语母语者），这将严重影响学校各项活动的开展。本项目从MMORPG游戏中获得灵感，将活动具像化成地图上的兴趣点，引导学生观察并对活动进行进一步交互，激发学生的探索兴趣，从而提升活动热度。
+
 ## 项目结构
 
 ```
@@ -39,12 +41,14 @@ API文档: http://localhost:8000/docs
 ## 开发工具
 
 ### 前端
+
 - **框架**: React 18 + TypeScript
 - **构建工具**: Vite
 - **样式**: Tailwind CSS
 - **代码检查**: ESLint + TypeScript
 
 ### 后端
+
 - **框架**: FastAPI
 - **运行时**: Python 3.11+
 - **代码格式**: Black
@@ -63,6 +67,7 @@ API文档: http://localhost:8000/docs
 ## 部署
 
 ### 本地开发
+
 ```bash
 # 启动后端
 cd backend && python main.py
@@ -72,6 +77,7 @@ cd frontend && npm run dev
 ```
 
 ### 生产构建
+
 ```bash
 # 构建前端
 cd frontend && npm run build
