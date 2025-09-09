@@ -1,4 +1,4 @@
-﻿task_id,title,description,category,location_name,latitude,longitude,difficulty,estimated_duration,prerequisites,rewards,status,created_at,updated_at,npc_id,course_code
+task_id,title,description,category,location_name,latitude,longitude,difficulty,estimated_duration,prerequisites,rewards,status,created_at,updated_at,npc_id,course_code
 NT001,整理图书资源,对图书馆内的书籍进行分类和上架，学习图书管理流程,学术研究,Run Run Shaw Library,22.336,114.1705,初级,60,无,学分+1,active,2025-09-01T09:00:00Z,2025-09-01T09:00:00Z,NPC101,LIB1001
 NT002,媒体设备维护,检查并更新创意媒体中心的多媒体设备,实验任务,Run Run Shaw Creative Media Centre,22.3365,114.172,中级,90,无,实践经验,active,2025-09-02T10:00:00Z,2025-09-02T10:00:00Z,NPC102,CMC2002
 NT003,教学楼清洁志愿服务,参与杨建文教学楼的教室整理和清洁工作,志愿服务,Yeung Kin Man Academic Building,22.3358,114.1702,初级,120,无,志愿时长+2小时,active,2025-09-03T14:00:00Z,2025-09-03T14:00:00Z,NPC103,

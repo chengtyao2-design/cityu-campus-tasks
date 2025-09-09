@@ -1,13 +1,26 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import os
 import logging
+import time
+from datetime import datetime
+from typing import Optional, List
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+import math
 
-# 导入数据加载器
+# 导入数据加载器和模式
 from data_loader import data_loader, initialize_data_loader
+from search_engine import initialize_search_engine, search_tasks
+from rag import initialize_rag_service, process_npc_chat
+from schemas import (
+    HealthStatus, TaskSchema, TaskDetailSchema, TaskListResponse, 
+    TaskDetailResponse, ErrorResponse, TaskFilters, PaginationParams,
+    PaginationMeta, TaskCategory, TaskDifficulty, TaskStatus,
+    LocationSchema, KnowledgeSchema, SearchRequest, SearchResult, SearchResponse,
+    ChatRequest, ChatResponse, Citation, MapAnchor, Suggestion
+)
 
 # 加载环境变量
 load_dotenv()
@@ -15,6 +28,9 @@ load_dotenv()
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# 应用启动时间
+app_start_time = time.time()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,6 +42,22 @@ async def lifespan(app: FastAPI):
         logger.error("数据加载器初始化失败")
     else:
         logger.info("数据加载器初始化成功")
+        
+        # 初始化搜索引擎
+        logger.info("正在初始化搜索引擎...")
+        search_success = initialize_search_engine(list(data_loader.tasks.values()))
+        if not search_success:
+            logger.error("搜索引擎初始化失败")
+        else:
+            logger.info("搜索引擎初始化成功")
+        
+        # 初始化 RAG 服务
+        logger.info("正在初始化 RAG 服务...")
+        rag_success = initialize_rag_service(data_loader.task_knowledge)
+        if not rag_success:
+            logger.error("RAG 服务初始化失败")
+        else:
+            logger.info("RAG 服务初始化成功")
     
     yield
     
@@ -50,49 +82,197 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 映射字典
+CATEGORY_MAPPING = {
+    "学术研究": "academic",
+    "校园活动": "activity", 
+    "迎新活动": "orientation",
+    "课程任务": "course",
+    "社交活动": "social",
+    "安全培训": "academic",
+    "社团活动": "activity",
+    "志愿服务": "activity",
+    "学术讲座": "academic",
+    "实验课程": "course",
+    "数据结构": "course"
+}
+
+DIFFICULTY_MAPPING = {
+    "初级": "easy",
+    "中级": "medium", 
+    "高级": "hard",
+    "简单": "easy",
+    "困难": "hard"
+}
+
+STATUS_MAPPING = {
+    "active": "available",
+    "可用": "available",
+    "进行中": "in_progress",
+    "已完成": "completed",
+    "锁定": "locked"
+}
+
+# 辅助函数
+def convert_task_to_schema(task) -> TaskSchema:
+    """将数据模型转换为 Pydantic 模式"""
+    # 映射枚举值
+    category = CATEGORY_MAPPING.get(task.category, task.category)
+    difficulty = DIFFICULTY_MAPPING.get(task.difficulty, task.difficulty)
+    status = STATUS_MAPPING.get(task.status, task.status)
+    
+    # 处理 prerequisites
+    prerequisites = None
+    if task.prerequisites and task.prerequisites != "无":
+        if isinstance(task.prerequisites, str):
+            prerequisites = [task.prerequisites] if task.prerequisites.strip() else None
+        else:
+            prerequisites = task.prerequisites
+    
+    return TaskSchema(
+        task_id=task.task_id,
+        title=task.title,
+        description=task.description,
+        category=category,
+        location=LocationSchema(
+            name=task.location_name,
+            lat=task.location_lat,
+            lng=task.location_lng
+        ),
+        estimated_duration=task.estimated_duration,
+        difficulty=difficulty,
+        points=task.points,
+        course_code=task.course_code,
+        npc_id=task.npc_id,
+        status=status,
+        prerequisites=prerequisites,
+        created_at=task.created_at,
+        updated_at=task.updated_at
+    )
+
+def convert_knowledge_to_schema(knowledge) -> Optional[KnowledgeSchema]:
+    """将知识库模型转换为 Pydantic 模式"""
+    if not knowledge:
+        return None
+    return KnowledgeSchema(
+        knowledge_type=knowledge.knowledge_type,
+        title=knowledge.title,
+        content=knowledge.content,
+        tags=knowledge.tags,
+        difficulty_level=knowledge.difficulty_level,
+        estimated_read_time=knowledge.estimated_read_time,
+        prerequisites=knowledge.prerequisites,
+        related_tasks=knowledge.related_tasks
+    )
+
+def apply_task_filters(tasks: List, filters: TaskFilters) -> List:
+    """应用任务过滤条件"""
+    filtered_tasks = tasks
+    
+    if filters.category:
+        filtered_tasks = [t for t in filtered_tasks if t.category == filters.category]
+    
+    if filters.course:
+        filtered_tasks = [t for t in filtered_tasks if t.course_code == filters.course]
+    
+    if filters.difficulty:
+        filtered_tasks = [t for t in filtered_tasks if t.difficulty == filters.difficulty]
+    
+    if filters.status:
+        filtered_tasks = [t for t in filtered_tasks if t.status == filters.status]
+    
+    if filters.date_from:
+        filtered_tasks = [t for t in filtered_tasks if t.created_at and t.created_at >= filters.date_from]
+    
+    if filters.date_to:
+        filtered_tasks = [t for t in filtered_tasks if t.created_at and t.created_at <= filters.date_to]
+    
+    if filters.search:
+        search_term = filters.search.lower()
+        filtered_tasks = [
+            t for t in filtered_tasks 
+            if search_term in t.title.lower() or search_term in t.description.lower()
+        ]
+    
+    return filtered_tasks
+
+def paginate_results(items: List, page: int, size: int) -> tuple:
+    """分页处理"""
+    total = len(items)
+    pages = math.ceil(total / size) if total > 0 else 0
+    start = (page - 1) * size
+    end = start + size
+    
+    paginated_items = items[start:end]
+    
+    meta = PaginationMeta(
+        page=page,
+        size=size,
+        total=total,
+        pages=pages,
+        has_next=page < pages,
+        has_prev=page > 1
+    )
+    
+    return paginated_items, meta
+
 @app.get("/")
 async def root():
     """根路径"""
     return {"message": "CityU Campus Tasks API", "version": "1.0.0"}
 
-@app.get("/health")
+@app.get("/healthz", response_model=HealthStatus)
 async def health_check():
     """健康检查端点"""
-    return {"status": "healthy", "message": "API is running"}
+    return HealthStatus(
+        status="healthy",
+        timestamp=datetime.now(),
+        version="1.0.0",
+        uptime=time.time() - app_start_time
+    )
 
-@app.get("/api/tasks")
-async def get_tasks():
-    """获取任务列表"""
+@app.get("/tasks", response_model=TaskListResponse)
+async def get_tasks(
+    page: int = Query(1, ge=1, description="页码"),
+    size: int = Query(20, ge=1, le=100, description="每页大小"),
+    category: Optional[TaskCategory] = Query(None, description="任务类别"),
+    course: Optional[str] = Query(None, description="课程代码"),
+    difficulty: Optional[TaskDifficulty] = Query(None, description="任务难度"),
+    status: Optional[TaskStatus] = Query(None, description="任务状态"),
+    date_from: Optional[datetime] = Query(None, description="开始日期"),
+    date_to: Optional[datetime] = Query(None, description="结束日期"),
+    search: Optional[str] = Query(None, description="搜索关键词")
+):
+    """获取任务列表（支持过滤和分页）"""
     try:
-        tasks = data_loader.get_all_tasks()
-        return {
-            "tasks": [
-                {
-                    "task_id": task.task_id,
-                    "title": task.title,
-                    "description": task.description,
-                    "category": task.category,
-                    "location": {
-                        "name": task.location_name,
-                        "lat": task.location_lat,
-                        "lng": task.location_lng
-                    },
-                    "estimated_duration": task.estimated_duration,
-                    "difficulty": task.difficulty,
-                    "points": task.points,
-                    "course_code": task.course_code,
-                    "npc_id": task.npc_id,
-                    "status": task.status
-                }
-                for task in tasks
-            ],
-            "total": len(tasks)
-        }
+        # 获取所有任务
+        all_tasks = data_loader.get_all_tasks()
+        
+        # 应用过滤条件
+        filters = TaskFilters(
+            category=category,
+            course=course,
+            difficulty=difficulty,
+            status=status,
+            date_from=date_from,
+            date_to=date_to,
+            search=search
+        )
+        filtered_tasks = apply_task_filters(all_tasks, filters)
+        
+        # 分页处理
+        paginated_tasks, meta = paginate_results(filtered_tasks, page, size)
+        
+        # 转换为 Pydantic 模式
+        task_schemas = [convert_task_to_schema(task) for task in paginated_tasks]
+        
+        return TaskListResponse(data=task_schemas, meta=meta)
+        
     except Exception as e:
         logger.error(f"获取任务列表失败: {str(e)}")
         raise HTTPException(status_code=500, detail="获取任务列表失败")
 
-@app.get("/api/tasks/{task_id}")
+@app.get("/tasks/{task_id}", response_model=TaskDetailResponse)
 async def get_task(task_id: str):
     """获取指定任务详情"""
     try:
@@ -102,38 +282,17 @@ async def get_task(task_id: str):
         
         knowledge = data_loader.get_task_knowledge(task_id)
         
-        return {
-            "task": {
-                "task_id": task.task_id,
-                "title": task.title,
-                "description": task.description,
-                "category": task.category,
-                "location": {
-                    "name": task.location_name,
-                    "lat": task.location_lat,
-                    "lng": task.location_lng
-                },
-                "estimated_duration": task.estimated_duration,
-                "difficulty": task.difficulty,
-                "points": task.points,
-                "prerequisites": task.prerequisites,
-                "course_code": task.course_code,
-                "npc_id": task.npc_id,
-                "status": task.status,
-                "created_at": task.created_at,
-                "updated_at": task.updated_at
-            },
-            "knowledge": {
-                "knowledge_type": knowledge.knowledge_type,
-                "title": knowledge.title,
-                "content": knowledge.content,
-                "tags": knowledge.tags,
-                "difficulty_level": knowledge.difficulty_level,
-                "estimated_read_time": knowledge.estimated_read_time,
-                "prerequisites": knowledge.prerequisites,
-                "related_tasks": knowledge.related_tasks
-            } if knowledge else None
-        }
+        # 转换为详情模式
+        task_schema = convert_task_to_schema(task)
+        knowledge_schema = convert_knowledge_to_schema(knowledge)
+        
+        task_detail = TaskDetailSchema(
+            **task_schema.model_dump(),
+            knowledge=knowledge_schema
+        )
+        
+        return TaskDetailResponse(data=task_detail)
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -316,6 +475,106 @@ async def debug_reload():
     except Exception as e:
         logger.error(f"重新加载数据失败: {str(e)}")
         raise HTTPException(status_code=500, detail="重新加载数据失败")
+
+
+@app.post("/tasks/search", response_model=SearchResponse, summary="Search Tasks", description="使用 BM25 算法搜索任务")
+async def search_tasks_endpoint(request: SearchRequest):
+    """搜索任务"""
+    try:
+        # 执行搜索
+        results = search_tasks(request.query, request.top_n)
+        
+        # 转换为响应格式
+        search_results = [
+            SearchResult(
+                task_id=result['task_id'],
+                title=result['title'],
+                score=result['score'],
+                lat=result['lat'],
+                lng=result['lng']
+            )
+            for result in results
+        ]
+        
+        # 构建元数据
+        meta = {
+            "query": request.query,
+            "total_results": len(search_results),
+            "top_n": request.top_n,
+            "algorithm": "BM25",
+            "search_time": "< 100ms"
+        }
+        
+        return SearchResponse(data=search_results, meta=meta)
+        
+    except Exception as e:
+        logger.error(f"搜索任务失败: {e}")
+        raise HTTPException(status_code=500, detail="搜索任务失败")
+
+
+@app.post("/npc/{task_id}/chat", response_model=ChatResponse, summary="NPC Chat", description="与任务 NPC 进行对话")
+async def npc_chat(task_id: str, request: ChatRequest):
+    """NPC 聊天端点"""
+    try:
+        # 检查任务是否存在
+        task = data_loader.get_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        
+        # 构建任务信息
+        task_info = {
+            'task_id': task.task_id,
+            'title': task.title,
+            'description': task.description,
+            'category': task.category,
+            'location_name': task.location_name,
+            'location_lat': task.location_lat,
+            'location_lng': task.location_lng
+        }
+        
+        # 处理聊天请求
+        rag_result = process_npc_chat(task_id, request.question, task_info)
+        
+        # 构建响应
+        citations = [
+            Citation(
+                source=citation['source'],
+                content=citation['content'],
+                score=citation['score']
+            )
+            for citation in rag_result.citations
+        ]
+        
+        map_anchor = MapAnchor(
+            lat=rag_result.map_anchor['lat'],
+            lng=rag_result.map_anchor['lng']
+        )
+        
+        suggestions = None
+        if rag_result.suggestions:
+            suggestions = [
+                Suggestion(
+                    type=suggestion['type'],
+                    title=suggestion['title'],
+                    description=suggestion['description']
+                )
+                for suggestion in rag_result.suggestions
+            ]
+        
+        return ChatResponse(
+            answer=rag_result.answer,
+            citations=citations,
+            map_anchor=map_anchor,
+            suggestions=suggestions,
+            uncertain_reason=rag_result.uncertain_reason
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"NPC 聊天失败: {e}")
+        raise HTTPException(status_code=500, detail="NPC 聊天失败")
+
 
 if __name__ == "__main__":
     import uvicorn
